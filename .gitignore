@@ -1,0 +1,35 @@
+# Compiled code
+*.class
+*.jar
+*.war
+*.ear
+
+# IDE-specific files
+.classpath
+.project
+.settings/
+.idea/
+*.iml
+
+# Maven
+target/
+
+# Gradle
+.gradle/
+build/
+gradle-app.setting
+!gradle-wrapper.jar
+
+# Bazel build outputs
+/bazel-*
+/.bazelproject
+/.bazelrc.user
+/bazel-bin/
+/bazel-genfiles/
+/bazel-out/
+/bazel-testlogs/
+/bazel-repo/
+
+# Operating system files
+.DS_Store
+Thumbs.db
