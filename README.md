@@ -319,6 +319,54 @@ gcs-java-bench/
 
 ---
 
+## Profiling
+
+The benchmark includes async-profiler integration for finding performance bottlenecks in the GCS SDK.
+
+### Quick Start
+
+```bash
+# Profile a read operation (wall-clock mode - recommended for I/O)
+./scripts/profile.sh wall read_test -- --bucket=my-bucket --object=10MB.dat --runs=100
+
+# Profile CPU-only (ignores I/O wait time)
+./scripts/profile.sh cpu cpu_analysis -- --bucket=my-bucket --object=file.dat --runs=100
+
+# Profile lock contention (good for high-concurrency tests)
+./scripts/profile.sh lock contention -- --bucket=my-bucket --object=file.dat --threads=32 --runs=500
+
+# Profile memory allocations (GC pressure analysis)
+./scripts/profile.sh alloc memory_test -- --bucket=my-bucket --object=file.dat --runs=100
+
+# Run all profiling modes
+./scripts/profile.sh all comprehensive -- --bucket=my-bucket --object=file.dat --runs=200
+```
+
+### Profile Modes
+
+| Mode | Best For | What It Shows |
+|------|----------|---------------|
+| `wall` | **I/O-heavy workloads** (recommended) | Where time is actually spent, including I/O waits, locks, network |
+| `cpu` | CPU-bound analysis | Computation hotspots only, ignores I/O time |
+| `lock` | High-concurrency tests | Where threads block waiting for locks |
+| `alloc` | Memory/GC analysis | Where objects are allocated, GC pressure sources |
+
+### Interpreting Results
+
+The profiler outputs interactive HTML flame graphs to `profiles/`. Key areas to examine for GCS SDK optimization:
+
+| Package | What It Represents |
+|---------|--------------------|
+| `com.google.cloud.storage.*` | GCS Java SDK methods |
+| `io.grpc.*` | gRPC transport layer |
+| `io.netty.*` | Network I/O operations |
+| `com.google.protobuf.*` | Protocol buffer serialization |
+| `com.google.auth.*` | Authentication/credential handling |
+
+> **Tip:** The script auto-downloads async-profiler on first run. Profiles are saved with timestamps for easy comparison.
+
+---
+
 ## Troubleshooting
 
 ### Build Errors
