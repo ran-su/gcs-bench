@@ -18,6 +18,7 @@ import java.util.function.Supplier;
 public class RoundRobinChannelPool implements StorageStubProvider {
     private final Supplier<ManagedChannel> channelCreator;
     private final BenchmarkParameters parameters;
+    private final GoogleCredentials cachedCredentials;
     private final AtomicReferenceArray<ManagedChannel> channels;
     private final AtomicInteger channelRotator = new AtomicInteger(0);
 
@@ -26,6 +27,7 @@ public class RoundRobinChannelPool implements StorageStubProvider {
         this.channelCreator = channelCreator;
         this.parameters = parameters;
         this.channels = new AtomicReferenceArray<>(Math.max(1, poolSize));
+        this.cachedCredentials = loadCredentials();
 
         for (int i = 0; i < channels.length(); i++) {
             channels.set(i, channelCreator.get());
@@ -34,20 +36,16 @@ public class RoundRobinChannelPool implements StorageStubProvider {
 
     @Override
     public StubHolder getStub() {
-        int index = Math.abs(channelRotator.getAndIncrement() % channels.length());
+        // Use unsigned modulo to avoid issues when counter wraps to Integer.MIN_VALUE
+        int index = (channelRotator.getAndIncrement() & Integer.MAX_VALUE) % channels.length();
         ManagedChannel channel = channels.get(index);
 
         StorageGrpc.StorageBlockingStub blockingStub = StorageGrpc.newBlockingStub(channel);
         StorageGrpc.StorageStub asyncStub = StorageGrpc.newStub(channel);
 
-        try {
-            GoogleCredentials creds = getCredentials();
-            if (creds != null) {
-                blockingStub = blockingStub.withCallCredentials(MoreCallCredentials.from(creds));
-                asyncStub = asyncStub.withCallCredentials(MoreCallCredentials.from(creds));
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load credentials", e);
+        if (cachedCredentials != null) {
+            blockingStub = blockingStub.withCallCredentials(MoreCallCredentials.from(cachedCredentials));
+            asyncStub = asyncStub.withCallCredentials(MoreCallCredentials.from(cachedCredentials));
         }
 
         return new StubHolder(blockingStub, asyncStub, channel);
@@ -86,10 +84,14 @@ public class RoundRobinChannelPool implements StorageStubProvider {
         }
     }
 
-    private GoogleCredentials getCredentials() throws IOException {
+    private GoogleCredentials loadCredentials() {
         if ("insecure".equalsIgnoreCase(parameters.cred)) {
             return null;
         }
-        return GoogleCredentials.getApplicationDefault();
+        try {
+            return GoogleCredentials.getApplicationDefault();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load credentials", e);
+        }
     }
 }

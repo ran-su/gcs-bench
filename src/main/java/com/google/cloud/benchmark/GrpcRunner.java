@@ -226,9 +226,9 @@ public class GrpcRunner implements BenchmarkRunner {
                 .build();
         requestObserver.onNext(WriteObjectRequest.newBuilder().setWriteObjectSpec(spec).build());
 
-        // Send data
+        // Send data in chunks
         int offset = 0;
-        int chunkSize = 2 * 1024 * 1024; // 2MB chunks
+        int chunkSize = parameters.chunkSize > 0 ? (int) parameters.chunkSize : 2 * 1024 * 1024; // Default 2MB
         while (offset < data.length) {
             int length = Math.min(chunkSize, data.length - offset);
             ByteString content = ByteString.copyFrom(data, offset, length);

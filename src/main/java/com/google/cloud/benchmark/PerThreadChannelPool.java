@@ -16,11 +16,13 @@ import io.grpc.auth.MoreCallCredentials;
  */
 public class PerThreadChannelPool implements StorageStubProvider {
     private final BenchmarkParameters parameters;
+    private final GoogleCredentials cachedCredentials;
     private final ThreadLocal<ManagedChannel> threadChannel;
     private final ConcurrentHashMap<Long, ManagedChannel> channels = new ConcurrentHashMap<>();
 
     public PerThreadChannelPool(Supplier<ManagedChannel> channelCreator, BenchmarkParameters parameters) {
         this.parameters = parameters;
+        this.cachedCredentials = loadCredentials();
         this.threadChannel = ThreadLocal.withInitial(() -> {
             ManagedChannel channel = channelCreator.get();
             channels.put(Thread.currentThread().getId(), channel);
@@ -34,14 +36,9 @@ public class PerThreadChannelPool implements StorageStubProvider {
         StorageGrpc.StorageBlockingStub blockingStub = StorageGrpc.newBlockingStub(channel);
         StorageGrpc.StorageStub asyncStub = StorageGrpc.newStub(channel);
 
-        try {
-            GoogleCredentials creds = getCredentials();
-            if (creds != null) {
-                blockingStub = blockingStub.withCallCredentials(MoreCallCredentials.from(creds));
-                asyncStub = asyncStub.withCallCredentials(MoreCallCredentials.from(creds));
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load credentials", e);
+        if (cachedCredentials != null) {
+            blockingStub = blockingStub.withCallCredentials(MoreCallCredentials.from(cachedCredentials));
+            asyncStub = asyncStub.withCallCredentials(MoreCallCredentials.from(cachedCredentials));
         }
 
         return new StubHolder(blockingStub, asyncStub, channel);
@@ -63,10 +60,14 @@ public class PerThreadChannelPool implements StorageStubProvider {
         channels.clear();
     }
 
-    private GoogleCredentials getCredentials() throws IOException {
+    private GoogleCredentials loadCredentials() {
         if ("insecure".equalsIgnoreCase(parameters.cred)) {
             return null;
         }
-        return GoogleCredentials.getApplicationDefault();
+        try {
+            return GoogleCredentials.getApplicationDefault();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load credentials", e);
+        }
     }
 }

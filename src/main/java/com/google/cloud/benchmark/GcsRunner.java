@@ -92,13 +92,23 @@ public class GcsRunner implements BenchmarkRunner {
                         System.out.println("Thread " + threadId + " operating on " + objectName);
                     }
 
-                    // Enforce timeout if specified
-                    if (parameters.timeout > 0) {
-                        bytesProcessed = performOperation(objectName);
-                    } else {
-                        bytesProcessed = performOperation(objectName);
+                    // Retry loop (matches GrpcRunner implementation)
+                    while (true) {
+                        try {
+                            bytesProcessed = performOperation(objectName);
+                            success = true;
+                            break; // Success - exit retry loop
+                        } catch (Exception e) {
+                            if (!parameters.trying) {
+                                // Not retrying - rethrow exception
+                                throw e;
+                            }
+                            // Log and retry
+                            if (parameters.verbose) {
+                                System.err.println("Operation failed, retrying: " + e.getMessage());
+                            }
+                        }
                     }
-                    success = true;
                 } catch (Exception e) {
                     if (parameters.verbose) {
                         e.printStackTrace();

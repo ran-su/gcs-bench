@@ -14,12 +14,14 @@ import java.util.function.Supplier;
 public class ConstChannelPool implements StorageStubProvider {
     private final Supplier<ManagedChannel> channelCreator;
     private final BenchmarkParameters parameters;
+    private final GoogleCredentials cachedCredentials;
     private ManagedChannel channel;
 
     public ConstChannelPool(Supplier<ManagedChannel> channelCreator, BenchmarkParameters parameters) {
         this.channelCreator = channelCreator;
         this.parameters = parameters;
         this.channel = channelCreator.get();
+        this.cachedCredentials = loadCredentials();
     }
 
     @Override
@@ -27,14 +29,9 @@ public class ConstChannelPool implements StorageStubProvider {
         StorageGrpc.StorageBlockingStub blockingStub = StorageGrpc.newBlockingStub(channel);
         StorageGrpc.StorageStub asyncStub = StorageGrpc.newStub(channel);
 
-        try {
-            GoogleCredentials creds = getCredentials();
-            if (creds != null) {
-                blockingStub = blockingStub.withCallCredentials(MoreCallCredentials.from(creds));
-                asyncStub = asyncStub.withCallCredentials(MoreCallCredentials.from(creds));
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load credentials", e);
+        if (cachedCredentials != null) {
+            blockingStub = blockingStub.withCallCredentials(MoreCallCredentials.from(cachedCredentials));
+            asyncStub = asyncStub.withCallCredentials(MoreCallCredentials.from(cachedCredentials));
         }
 
         return new StubHolder(blockingStub, asyncStub, channel);
@@ -62,10 +59,14 @@ public class ConstChannelPool implements StorageStubProvider {
         }
     }
 
-    private GoogleCredentials getCredentials() throws IOException {
+    private GoogleCredentials loadCredentials() {
         if ("insecure".equalsIgnoreCase(parameters.cred)) {
             return null;
         }
-        return GoogleCredentials.getApplicationDefault();
+        try {
+            return GoogleCredentials.getApplicationDefault();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load credentials", e);
+        }
     }
 }

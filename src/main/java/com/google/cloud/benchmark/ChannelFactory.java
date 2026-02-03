@@ -18,7 +18,8 @@ public class ChannelFactory {
      * @return Configured ManagedChannel
      */
     public static ManagedChannel createChannel(BenchmarkParameters parameters, boolean logArgs) {
-        ManagedChannelBuilder<?> channelBuilder = ManagedChannelBuilder.forAddress("storage.googleapis.com", 443);
+        ManagedChannelBuilder<?> channelBuilder = ManagedChannelBuilder.forAddress("storage.googleapis.com", 443)
+                .useTransportSecurity();
 
         if (parameters.channelArgs != null && !parameters.channelArgs.isEmpty()) {
             if (logArgs) {

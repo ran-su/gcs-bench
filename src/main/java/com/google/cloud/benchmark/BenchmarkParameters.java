@@ -9,7 +9,7 @@ public class BenchmarkParameters {
     @Option(names = "--object", description = "The object to use for the benchmark", required = true)
     public String object;
 
-    @Option(names = "--client", description = "Client (grpc, gcs-json, gcs-grpc)", defaultValue = "grpc")
+    @Option(names = "--client", description = "Client type (grpc, http, gcs-json, gcs-grpc)", defaultValue = "grpc")
     public String client;
 
     @Option(names = "--operation", description = "Operation type (read, random-read, write)", defaultValue = "read")
